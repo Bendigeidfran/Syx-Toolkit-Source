@@ -1,0 +1,30 @@
+# Allow-list: nothing is tracked unless it's named here.
+/*
+!/.gitignore
+!/core/
+!/audio/
+!/gui/
+!/cli/
+!/mcp/
+!/test/
+!/scripts/
+
+# Never track compiled classes or jars, wherever they appear.
+*.class
+*.jar
+
+# Agent and editor files stay local, at any depth, even inside an allowed folder.
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+.github/copilot-instructions.md
+.mcp.json
+.vscode/
+.idea/
+handoff.md
