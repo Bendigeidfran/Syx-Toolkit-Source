@@ -2,9 +2,12 @@
 # The finished app needs no Java or JDK to run. It loads SongsOfSyx.jar from the user's install.
 # It also writes dist\Syx-Toolkit-<version>.zip for a GitHub release, made before any player files are put back.
 # -Dist builds somewhere else, for testing without replacing the app in dist\.
-param([string]$Jdk = $env:SYX_JDK, [string]$Dist)
+# -NoZip skips the zip. The release workflow uses it, because it zips the app only after it's been signed.
+param([string]$Jdk = $env:SYX_JDK, [string]$Dist, [switch]$NoZip)
 $ErrorActionPreference = 'Stop'
 if (-not $Jdk) { throw 'Set -Jdk or SYX_JDK to a Java 21 JDK folder.' }
+$rcedit = Join-Path (Split-Path $PSScriptRoot -Parent) 'tools\rcedit-x64.exe'
+if (-not (Test-Path $rcedit)) { throw 'tools\rcedit-x64.exe is missing. Run scripts\fetch-libs.ps1 first.' }
 
 # jdk.crypto.ec is needed for HTTPS to the handbook, which fails with a handshake error without it.
 $modules = 'java.base,java.desktop,jdk.crypto.ec'
@@ -92,6 +95,20 @@ if ($LASTEXITCODE -ne 0) { throw 'jpackage failed.' }
 Remove-Item -Force $launcherProperties
 Remove-Item -Recurse -Force $jarFolder
 if (-not (Test-Path (Join-Path $appFolder 'syx.exe'))) { throw 'The command line launcher, syx.exe, is missing.' }
+# jpackage names an added launcher's product after the launcher, "syx". Code signing needs every signed file to
+# carry the project's name and version, so it's set here and both launchers are checked.
+# jpackage makes the launchers read-only, which rcedit can't write through, so the flag is lifted for the edit.
+$cliLauncher = Get-Item (Join-Path $appFolder 'syx.exe')
+$cliLauncher.IsReadOnly = $false
+& $rcedit $cliLauncher.FullName --set-version-string 'ProductName' 'Syx Toolkit'
+if ($LASTEXITCODE -ne 0) { throw 'rcedit failed to set syx.exe''s product name.' }
+$cliLauncher.IsReadOnly = $true
+foreach ($launcher in 'Syx Toolkit.exe', 'syx.exe') {
+    $info = (Get-Item (Join-Path $appFolder $launcher)).VersionInfo
+    if ($info.ProductName -ne 'Syx Toolkit' -or $info.ProductVersion -ne "$major.$minor") {
+        throw "$launcher says it's $($info.ProductName) $($info.ProductVersion), not Syx Toolkit $major.$minor."
+    }
+}
 
 # Check what was actually built.
 $app = Join-Path $dist 'Syx Toolkit'
@@ -174,17 +191,7 @@ if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
 foreach ($own in 'Diff Reports', 'Converted Audio Files', 'Wizards') {
     if (Test-Path (Join-Path $app $own)) { throw "The app contains a $own folder before zipping." }
 }
-# Entries are added one by one, because Windows PowerShell's CreateFromDirectory writes backslashes, which other unzip tools mishandle.
-$archive = [IO.Compression.ZipFile]::Open($releaseZip, [IO.Compression.ZipArchiveMode]::Create)
-try {
-    $prefix = (Get-Item $app).Parent.FullName.TrimEnd('\') + '\'
-    foreach ($file in Get-ChildItem $app -Recurse -File -Force) {
-        $name = $file.FullName.Substring($prefix.Length).Replace('\', '/')
-        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
-    }
-} finally {
-    $archive.Dispose()
-}
+if (-not $NoZip) { & (Join-Path $PSScriptRoot 'zip-release.ps1') -App $app -Zip $releaseZip }
 
 # Put back what was kept. A file with a released one's name must be that file, or it's someone's own and isn't replaced.
 if (Test-Path $keptManifests) {
@@ -211,4 +218,4 @@ if (Test-Path $keptAudio) { Move-Item $keptAudio (Join-Path $app 'Converted Audi
 if (Test-Path $keptWizards) { Move-Item $keptWizards (Join-Path $app 'Wizards') }
 
 Write-Output "Packaged to $app"
-Write-Output "Release zip: $releaseZip"
+if (-not $NoZip) { Write-Output "Release zip: $releaseZip" }

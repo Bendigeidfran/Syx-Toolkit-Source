@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The SignPath artifact configuration for the release workflow. SignPath keeps its own copy, set in its web
+     interface; this file records what it should say. The artifact is the app folder's contents, zipped by GitHub.
+     Only the two launchers are ours to sign. The Java runtime's files are already signed by their vendor. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file-set product-name="Syx Toolkit" product-version="${version}">
+      <include path="Syx Toolkit.exe" />
+      <include path="syx.exe" />
+      <for-each>
+        <authenticode-sign />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

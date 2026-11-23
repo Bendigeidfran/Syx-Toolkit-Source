@@ -6,7 +6,7 @@ It's in alpha. A check can miss a problem, and a clean result doesn't prove a mo
 
 ## Download
 
-Get the latest zip from [Releases](../../releases), unzip it anywhere, and start `Syx Toolkit.exe`. The first run asks for your Songs of Syx folder. Java doesn't need to be installed, because the app brings its own runtime. It runs on Windows only for now.
+Get the latest zip from [Releases](../../releases), unzip it anywhere, and start `Syx Toolkit.exe`. The first run asks for your Songs of Syx folder. Java doesn't need to be installed, because the app brings its own runtime. It runs on Windows only for now. See the [code signing policy](#code-signing-policy) for how releases are built and signed.
 
 ## What you can do
 
@@ -25,7 +25,7 @@ Get the latest zip from [Releases](../../releases), unzip it anywhere, and start
 You need Windows, PowerShell and a Java 21 JDK, such as [Eclipse Temurin](https://adoptium.net/). Run these from the project root. Each script also reads its folder from an environment variable: `SYX_JDK`, `SYX_JAVA` and `SYX_GAME`.
 
 ```powershell
-.\scripts\fetch-libs.ps1                                  # once: downloads the libraries into lib\, checksum-verified
+.\scripts\fetch-libs.ps1                                  # once: downloads the libraries into lib\ and rcedit into tools\, checksum-verified
 .\scripts\build.ps1   -Jdk  "<jdk folder>"                # compiles to out\
 .\scripts\test.ps1    -Java "<jdk folder>" -Game "<game>" # runs the tests; without -Game, game-dependent ones skip
 .\scripts\run.ps1     -Java "<jdk folder>"                # runs the app from out\
@@ -37,6 +37,19 @@ You need Windows, PowerShell and a Java 21 JDK, such as [Eclipse Temurin](https:
 This repository and the app contain none of the game's code, data or art. The toolkit reads them from your own installation while it runs. The game's developer has agreed to the toolkit being distributed on that basis.
 
 The files in `manifests/` describe two game versions for the version comparison. They hold class and member names, signatures and one-way hashes only, never game code, and the developer has agreed to them being shared.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+Releases are built from this repository by the [Build workflow](.github/workflows/build.yml), on GitHub-hosted runners only. Pushing a version tag builds and tests the app, and sends its two launchers, `Syx Toolkit.exe` and `syx.exe`, to SignPath. A person must approve each signing request before anything is signed. The workflow then checks that signing changed only those two files and drafts the release, which is published by hand. The Java runtime inside the app is signed by its own vendor, and the libraries are the unchanged, checksum-pinned jars listed in `scripts/fetch-libs.ps1`.
+
+Team roles:
+
+- Committers and reviewers: [Bendigeidfran](https://github.com/Bendigeidfran)
+- Approvers: [Bendigeidfran](https://github.com/Bendigeidfran)
+
+Privacy: this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The only request it makes by itself is to download the [Songs of Syx Modding Handbook](https://bendigeidfran.github.io/Syx-Modding-Handbook/)'s tag descriptions, a public file, from GitHub Pages when it starts. That request sends nothing about you, your game or your mods. GitHub receives it as it would any web page visit, under the [GitHub Privacy Statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement). An AI agent you connect is your own, and the toolkit calls no AI service.
 
 ## Licence
 

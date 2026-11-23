@@ -50,3 +50,22 @@ foreach ($jar in $more) {
     Move-Item -Force $temp $target
     Write-Output "Downloaded $($jar.File)."
 }
+
+# Build tools go in tools\, apart from the libraries, because they're never shipped. rcedit (Electron, MIT) sets
+# syx.exe's product name, which jpackage can't, so both launchers carry the project name that code signing checks.
+$tools = Join-Path $root 'tools'
+New-Item -ItemType Directory -Force $tools | Out-Null
+$rcedit = @{ File = 'rcedit-x64.exe'; Url = 'https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe'; Sha256 = '3e7801db1a5edbec91b49a24a094aad776cb4515488ea5a4ca2289c400eade2a' }
+$target = Join-Path $tools $rcedit.File
+if ((Test-Path $target) -and (Get-FileHash $target -Algorithm SHA256).Hash -eq $rcedit.Sha256) {
+    Write-Output "$($rcedit.File) is already here."
+} else {
+    $temp = "$target.download"
+    Invoke-WebRequest -UseBasicParsing -Uri $rcedit.Url -OutFile $temp
+    if ((Get-FileHash $temp -Algorithm SHA256).Hash -ne $rcedit.Sha256) {
+        Remove-Item -Force $temp
+        throw "$($rcedit.File) doesn't match its expected checksum, so it wasn't kept."
+    }
+    Move-Item -Force $temp $target
+    Write-Output "Downloaded $($rcedit.File)."
+}

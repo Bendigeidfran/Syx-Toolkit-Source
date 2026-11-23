@@ -11,6 +11,7 @@
 !/mcp/
 !/test/
 !/scripts/
+!/.github/
 
 # Never track compiled classes or jars, wherever they appear.
 *.class
