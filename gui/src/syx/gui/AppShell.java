@@ -82,7 +82,7 @@ final class AppShell extends JPanel {
 
 	private void buildTopBar() {
 		JLabel appName = new JLabel("Songs of Syx Modding Toolkit");
-		JLabel version = new JLabel(AppVersion.label());
+		JLabel version = new JLabel(syx.core.AppVersion.label());
 		Theme.style(appName, "semibold");
 		Theme.style(appName, "onTopBar");
 		Theme.style(version, "small");

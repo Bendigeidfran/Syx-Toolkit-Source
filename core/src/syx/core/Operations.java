@@ -33,7 +33,8 @@ import syx.audio.AudioConversion;
  */
 public final class Operations {
 
-	public static final String VERSION = "0.1";
+	/** The toolkit's version, the same one the app shows. */
+	public static final String VERSION = AppVersion.number();
 
 	/** Why a call was refused, in terms the caller can act on. Anything it should know goes in the details. */
 	public static final class Refused extends Exception {

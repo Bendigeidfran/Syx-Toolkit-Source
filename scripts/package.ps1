@@ -153,7 +153,7 @@ Copy-Item $ownLicence (Join-Path $app 'LICENSE.txt')
 
 # The release zip is made now, while the app holds only what was just built: none of the player's
 # own manifests, reports, converted audio or wizard progress, which are put back after it.
-$versionText = Get-Content (Join-Path $root 'gui\src\syx\gui\AppVersion.java') -Raw
+$versionText = Get-Content (Join-Path $root 'core\src\syx\core\AppVersion.java') -Raw
 $phase = [regex]::Match($versionText, 'PHASE\s*=\s*"(\w+)"').Groups[1].Value
 $major = [regex]::Match($versionText, 'MAJOR\s*=\s*(\d+)').Groups[1].Value
 $minor = [regex]::Match($versionText, 'MINOR\s*=\s*(\d+)').Groups[1].Value
