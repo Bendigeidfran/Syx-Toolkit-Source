@@ -1,5 +1,6 @@
 # Builds the double-clickable app in dist\, with its own trimmed Java runtime. Run build.ps1 first.
 # The finished app needs no Java or JDK to run. It loads SongsOfSyx.jar from the user's install.
+# It also writes dist\Syx-Toolkit-<version>.zip for a GitHub release, made before any player files are put back.
 # -Dist builds somewhere else, for testing without replacing the app in dist\.
 param([string]$Jdk = $env:SYX_JDK, [string]$Dist)
 $ErrorActionPreference = 'Stop'
@@ -22,7 +23,7 @@ if ($jdkVersion -notlike '21.*') { throw "Packaging needs a Java 21 JDK, but thi
 $root = Split-Path $PSScriptRoot -Parent
 $out = Join-Path $root 'out'
 $dist = if ($Dist) { $Dist } else { Join-Path $root 'dist' }
-# dist\ is its own Git repo, so only the build output inside it is replaced.
+# Only the build output inside dist\ is replaced. The player files in the app folder are kept, below.
 $appFolder = Join-Path $dist 'Syx Toolkit'
 # Windows locks a running app's files, so check before deleting anything.
 $running = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($appFolder + '\', [StringComparison]::OrdinalIgnoreCase) }
@@ -65,6 +66,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Creating toolkit.jar failed.' }
 
 # Only our own classes may be in the jar. This also keeps out anything that could hold game text, such as
 # the handbook's tag data, which quotes vanilla files and is downloaded at run time instead.
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [IO.Compression.ZipFile]::OpenRead($jar)
 $foreign = $zip.Entries | Where-Object { -not $_.FullName.EndsWith('/') -and $_.FullName -notmatch '^syx/.*\.class$' -and $_.FullName -notmatch '^META-INF/' }
@@ -95,7 +97,7 @@ $builtJars = ((Get-ChildItem (Join-Path $app 'app') -Filter '*.jar').Name | Sort
 if ($builtJars -ne $expectedJars) { throw "The app has unexpected jars: $builtJars" }
 
 # The manifests that ship, which hold names and hashes and no game code. They're pinned in one tracked file,
-# and only these exact files go in, so a stray test manifest can't reach the public repo.
+# and only these exact files go in, so a stray test manifest can't reach a release.
 $pinFile = Join-Path $root 'core\src\syx\core\ShippedManifests.java'
 $pins = @{}
 foreach ($match in [regex]::Matches((Get-Content $pinFile -Raw), '"(SongsOfSyx-[^"]+\.manifest\.json\.gz)",\s*"([0-9a-f]{64})"')) {
@@ -115,34 +117,6 @@ foreach ($name in $pins.Keys) {
     if ($hash -ne $pins[$name]) { throw "manifests\$name doesn't match its pin: $hash" }
     Copy-Item $file $manifestTarget
 }
-# Put back what was kept. A file with a released one's name must be that file, or it's someone's own and isn't replaced.
-if (Test-Path $keptManifests) {
-    foreach ($file in Get-ChildItem $keptManifests -File) {
-        $target = Join-Path $manifestTarget $file.Name
-        if ($pins.ContainsKey($file.Name)) {
-            if ((Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pins[$file.Name]) {
-                throw "$($file.FullName) has a released manifest's name but different contents. Rename or move it, then package again. It's still in $keptManifests."
-            }
-            continue
-        }
-        Copy-Item $file.FullName $target
-    }
-    Remove-Item -Recurse -Force $keptManifests
-}
-foreach ($name in $pins.Keys) {
-    if ((Get-FileHash (Join-Path $manifestTarget $name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pins[$name]) { throw "The app's $name isn't the pinned file." }
-}
-
-# dist\ is a public repo. Only the released manifests belong in it, and never a player's own files or reports.
-$ignore = @('# Written by scripts\package.ps1. A player''s own manifests, reports, converted audio and wizard progress must never be published.', 'Syx Toolkit/Diff Reports/', 'Syx Toolkit/Converted Audio Files/', 'Syx Toolkit/Wizards/', 'Syx Toolkit/Manifests/*')
-foreach ($name in ($pins.Keys | Sort-Object)) { $ignore += "!Syx Toolkit/Manifests/$name" }
-Set-Content -Path (Join-Path $dist '.gitignore') -Encoding ascii -Value $ignore
-
-# Diff reports are a player's own, saved beside the .exe. A rebuild clears them, and none may ship.
-if (Test-Path (Join-Path $app 'Diff Reports')) { throw 'The app contains a Diff Reports folder.' }
-# Put the player's converted audio back. Unlike reports, a rebuild must not throw these away.
-if (Test-Path $keptAudio) { Move-Item $keptAudio (Join-Path $app 'Converted Audio Files') }
-if (Test-Path $keptWizards) { Move-Item $keptWizards (Join-Path $app 'Wizards') }
 
 # The libraries are Apache 2.0, which asks for a copy of the licence and a list of what's included.
 $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path $root "lib\$($allowedLibs[0])"))
@@ -172,4 +146,58 @@ $notices = @(
 ) -join "`r`n"
 [IO.File]::WriteAllText((Join-Path $app 'THIRD-PARTY-NOTICES.txt'), $notices)
 
+# The toolkit's own licence, CC BY-SA 4.0, travels with every copy.
+$ownLicence = Join-Path $root 'LICENSE'
+if (-not (Test-Path $ownLicence)) { throw 'LICENSE is missing from the project root.' }
+Copy-Item $ownLicence (Join-Path $app 'LICENSE.txt')
+
+# The release zip is made now, while the app holds only what was just built: none of the player's
+# own manifests, reports, converted audio or wizard progress, which are put back after it.
+$versionText = Get-Content (Join-Path $root 'gui\src\syx\gui\AppVersion.java') -Raw
+$phase = [regex]::Match($versionText, 'PHASE\s*=\s*"(\w+)"').Groups[1].Value
+$major = [regex]::Match($versionText, 'MAJOR\s*=\s*(\d+)').Groups[1].Value
+$minor = [regex]::Match($versionText, 'MINOR\s*=\s*(\d+)').Groups[1].Value
+if (-not ($phase -and $major -and $minor)) { throw "Couldn't read the version from AppVersion.java." }
+$releaseZip = Join-Path $dist "Syx-Toolkit-$phase-v$major.$minor.zip"
+if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
+foreach ($own in 'Diff Reports', 'Converted Audio Files', 'Wizards') {
+    if (Test-Path (Join-Path $app $own)) { throw "The app contains a $own folder before zipping." }
+}
+# Entries are added one by one, because Windows PowerShell's CreateFromDirectory writes backslashes, which other unzip tools mishandle.
+$archive = [IO.Compression.ZipFile]::Open($releaseZip, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    $prefix = (Get-Item $app).Parent.FullName.TrimEnd('\') + '\'
+    foreach ($file in Get-ChildItem $app -Recurse -File -Force) {
+        $name = $file.FullName.Substring($prefix.Length).Replace('\', '/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $name, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally {
+    $archive.Dispose()
+}
+
+# Put back what was kept. A file with a released one's name must be that file, or it's someone's own and isn't replaced.
+if (Test-Path $keptManifests) {
+    foreach ($file in Get-ChildItem $keptManifests -File) {
+        $target = Join-Path $manifestTarget $file.Name
+        if ($pins.ContainsKey($file.Name)) {
+            if ((Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pins[$file.Name]) {
+                throw "$($file.FullName) has a released manifest's name but different contents. Rename or move it, then package again. It's still in $keptManifests."
+            }
+            continue
+        }
+        Copy-Item $file.FullName $target
+    }
+    Remove-Item -Recurse -Force $keptManifests
+}
+foreach ($name in $pins.Keys) {
+    if ((Get-FileHash (Join-Path $manifestTarget $name) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pins[$name]) { throw "The app's $name isn't the pinned file." }
+}
+
+# Diff reports are a player's own, saved beside the .exe. A rebuild clears them, and none may ship.
+if (Test-Path (Join-Path $app 'Diff Reports')) { throw 'The app contains a Diff Reports folder.' }
+# Put the player's converted audio back. Unlike reports, a rebuild must not throw these away.
+if (Test-Path $keptAudio) { Move-Item $keptAudio (Join-Path $app 'Converted Audio Files') }
+if (Test-Path $keptWizards) { Move-Item $keptWizards (Join-Path $app 'Wizards') }
+
 Write-Output "Packaged to $app"
+Write-Output "Release zip: $releaseZip"

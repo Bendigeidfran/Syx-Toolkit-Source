@@ -1,6 +1,9 @@
 # Allow-list: nothing is tracked unless it's named here.
 /*
 !/.gitignore
+!/README.md
+!/LICENSE
+!/manifests/
 !/core/
 !/audio/
 !/gui/
