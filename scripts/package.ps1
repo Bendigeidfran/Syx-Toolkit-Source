@@ -73,11 +73,21 @@ $foreign = $zip.Entries | Where-Object { -not $_.FullName.EndsWith('/') -and $_.
 $zip.Dispose()
 if ($foreign) { throw "toolkit.jar contains files that aren't ours: $($foreign.FullName -join ', ')" }
 
+$versionText = Get-Content (Join-Path $root 'core\src\syx\core\AppVersion.java') -Raw
+$phase = [regex]::Match($versionText, 'PHASE\s*=\s*"(\w+)"').Groups[1].Value
+$major = [regex]::Match($versionText, 'MAJOR\s*=\s*(\d+)').Groups[1].Value
+$minor = [regex]::Match($versionText, 'MINOR\s*=\s*(\d+)').Groups[1].Value
+if (-not ($phase -and $major -and $minor)) { throw "Couldn't read the version from AppVersion.java." }
+
+# Both launchers carry real version information (version, vendor, description, copyright), taken from
+# AppVersion, instead of jpackage's placeholders. Antivirus heuristics distrust executables without it.
+$vendor = 'Syx Toolkit'
+$copyright = 'Syx Toolkit contributors. Licensed under CC BY-SA 4.0.'
 $jlinkOptions = '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6'
 # syx.exe is the command line and MCP server. It needs a console launcher for its standard input and output to work.
 $launcherProperties = Join-Path $dist 'syx-launcher.properties'
-Set-Content -Path $launcherProperties -Encoding ascii -Value @('main-class=syx.cli.Main', 'win-console=true')
-& (Join-Path $Jdk 'bin\jpackage.exe') --type app-image --name 'Syx Toolkit' --input $jarFolder --main-jar toolkit.jar --main-class syx.gui.Main --add-launcher "syx=$launcherProperties" --module-path (Join-Path $Jdk 'jmods') --add-modules $modules --jlink-options $jlinkOptions --dest $dist
+Set-Content -Path $launcherProperties -Encoding ascii -Value @('main-class=syx.cli.Main', 'win-console=true', 'description=Songs of Syx Modding Toolkit command line and MCP server')
+& (Join-Path $Jdk 'bin\jpackage.exe') --type app-image --name 'Syx Toolkit' --input $jarFolder --main-jar toolkit.jar --main-class syx.gui.Main --add-launcher "syx=$launcherProperties" --app-version "$major.$minor" --vendor $vendor --description 'Songs of Syx Modding Toolkit' --copyright $copyright --module-path (Join-Path $Jdk 'jmods') --add-modules $modules --jlink-options $jlinkOptions --dest $dist
 if ($LASTEXITCODE -ne 0) { throw 'jpackage failed.' }
 Remove-Item -Force $launcherProperties
 Remove-Item -Recurse -Force $jarFolder
@@ -153,11 +163,6 @@ Copy-Item $ownLicence (Join-Path $app 'LICENSE.txt')
 
 # The release zip is made now, while the app holds only what was just built: none of the player's
 # own manifests, reports, converted audio or wizard progress, which are put back after it.
-$versionText = Get-Content (Join-Path $root 'core\src\syx\core\AppVersion.java') -Raw
-$phase = [regex]::Match($versionText, 'PHASE\s*=\s*"(\w+)"').Groups[1].Value
-$major = [regex]::Match($versionText, 'MAJOR\s*=\s*(\d+)').Groups[1].Value
-$minor = [regex]::Match($versionText, 'MINOR\s*=\s*(\d+)').Groups[1].Value
-if (-not ($phase -and $major -and $minor)) { throw "Couldn't read the version from AppVersion.java." }
 $releaseZip = Join-Path $dist "Syx-Toolkit-$phase-v$major.$minor.zip"
 if (Test-Path $releaseZip) { Remove-Item -Force $releaseZip }
 foreach ($own in 'Diff Reports', 'Converted Audio Files', 'Wizards') {
