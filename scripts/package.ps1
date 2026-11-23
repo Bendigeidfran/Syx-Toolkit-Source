@@ -82,7 +82,7 @@ if (-not ($phase -and $major -and $minor)) { throw "Couldn't read the version fr
 # Both launchers carry real version information (version, vendor, description, copyright), taken from
 # AppVersion, instead of jpackage's placeholders. Antivirus heuristics distrust executables without it.
 $vendor = 'Syx Toolkit'
-$copyright = 'Syx Toolkit contributors. Licensed under CC BY-SA 4.0.'
+$copyright = 'Copyright (C) 2026 Bendigeidfran. Licensed under GPLv3 or later.'
 $jlinkOptions = '--strip-native-commands --strip-debug --no-man-pages --no-header-files --compress=zip-6'
 # syx.exe is the command line and MCP server. It needs a console launcher for its standard input and output to work.
 $launcherProperties = Join-Path $dist 'syx-launcher.properties'
@@ -156,10 +156,16 @@ $notices = @(
 ) -join "`r`n"
 [IO.File]::WriteAllText((Join-Path $app 'THIRD-PARTY-NOTICES.txt'), $notices)
 
-# The toolkit's own licence, CC BY-SA 4.0, travels with every copy.
+# The toolkit's own licence, GPLv3, travels with every copy. LICENSE holds the unchanged GPL text; the copyright
+# notice and the Songs of Syx exception are the README's Licence section, which goes first.
 $ownLicence = Join-Path $root 'LICENSE'
 if (-not (Test-Path $ownLicence)) { throw 'LICENSE is missing from the project root.' }
-Copy-Item $ownLicence (Join-Path $app 'LICENSE.txt')
+$readme = [IO.File]::ReadAllText((Join-Path $root 'README.md'))
+$licenceSection = [regex]::Match($readme, '(?s)## Licence\s*\r?\n(.*?)(?=\r?\n## |\z)')
+if (-not $licenceSection.Success -or $licenceSection.Groups[1].Value -notmatch 'section 7') { throw "README.md has no Licence section with the Songs of Syx exception." }
+$notice = ($licenceSection.Groups[1].Value.Trim() -replace '\[([^\]]+)\]\([^)]+\)', '$1') -replace '\r?\n', "`r`n"
+$gplText = [IO.File]::ReadAllText($ownLicence) -replace '\r?\n', "`r`n"
+[IO.File]::WriteAllText((Join-Path $app 'LICENSE.txt'), $notice + "`r`n`r`n" + ('-' * 76) + "`r`n`r`n" + $gplText)
 
 # The release zip is made now, while the app holds only what was just built: none of the player's
 # own manifests, reports, converted audio or wizard progress, which are put back after it.

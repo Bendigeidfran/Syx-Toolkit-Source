@@ -11,7 +11,7 @@ public final class AppVersion {
 
 	public static final String PHASE = "Alpha";
 	public static final int MAJOR = 3;
-	public static final int MINOR = 1;
+	public static final int MINOR = 2;
 
 	private AppVersion() {
 	}

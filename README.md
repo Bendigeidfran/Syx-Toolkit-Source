@@ -40,6 +40,15 @@ The files in `manifests/` describe two game versions for the version comparison.
 
 ## Licence
 
-The toolkit is by Bendigeidfran, under [Creative Commons Attribution-ShareAlike 4.0](LICENSE). The libraries in the app keep their own licences, which are listed in `THIRD-PARTY-NOTICES.txt` in the app folder.
+Songs of Syx Modding Toolkit
+Copyright (C) 2026 Bendigeidfran
 
-Songs of Syx belongs to its developer and isn't covered by this licence.
+This program is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+Additional permission under GNU GPL version 3 section 7: if you modify this program, or any covered work, by linking or combining it with Songs of Syx (or a modified version of it), containing parts covered by the terms of the Songs of Syx licence, the licensors of this program grant you additional permission to convey the resulting work.
+
+Releases up to and including Alpha v3.0 were published under Creative Commons Attribution-ShareAlike 4.0, and copies of those releases keep that licence.
+
+The libraries in the app keep their own licences, which are listed in `THIRD-PARTY-NOTICES.txt` in the app folder. Songs of Syx belongs to its developer and isn't covered by this licence.
